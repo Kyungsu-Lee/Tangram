@@ -168,6 +168,8 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
         mLoaderCallback.onManagerConnected(LoaderCallbackInterface.SUCCESS);
 
         RelativeLayout main = (RelativeLayout)findViewById(R.id.main);
+        if(idx == 0)
+            main.setScaleX(-1);
 
         ImageView bg = new ImageView(MainActivity.this);
         bg.setLayoutParams(new RelativeLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
@@ -188,6 +190,8 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
         tv.setTextColor(Color.BLACK);
         tv.setText("위의 모양대로 맞춰주세요!");
         main.addView(tv);
+        if(idx == 0)
+            tv.setScaleX(-1);
 
 
     }

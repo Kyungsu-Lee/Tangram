@@ -134,7 +134,7 @@ void getLamda(Mat &src, Mat &lambda) {
 /* read answer file and store in answer variables*/
 void readAnswer(vector<ANS>& answer) {
     FILE *fp;
-    fp = fopen("/sdcard/Documents/answer.txt", "r");
+    fp = fopen("/sdcard/Download/answer.txt", "r");
    // fp = fopen("/data/user/0/com.example.jh.tangram/files/answer.txt", "r");
     if (fp == NULL)
         return;
@@ -538,7 +538,7 @@ void getBlock(Mat &src, BLOCK block[7]) {
 void matchBlockDistance(BLOCK block[7], ANS &answer, vector<int> &foundIdx) {
     vector<int> tempIdx;
 
-    int margin = 20;
+    int margin = 80;
     int t = 0;    //answer dist index
     //모든 블럭의 거리 계산 찾아진 블럭이 아니면 거리를 0, 이를 정답 거리와 비교하여 일치하는 경우 인덱스 저장
     for (int i = 0; i < 7; i++) {
@@ -586,7 +586,7 @@ void matchBlockDistance(BLOCK block[7], ANS &answer, vector<int> &foundIdx) {
 }
 
 int matchBlockAngle(BLOCK block[7], ANS &answer, int &idx) {
-    int angmargin = 15;
+    int angmargin = 60;
     int match = 0;
 
     int angle = block[idx].angle;
