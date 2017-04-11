@@ -30,7 +30,7 @@ public class AnimationPlayer extends RelativeLayout {
         packageName = context.getPackageName();
 
         videoView = new VideoView(context);
-        LayoutParams layoutParams = new LayoutParams(LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+        LayoutParams layoutParams = new LayoutParams(LayoutParams.MATCH_PARENT, (int)ScreenParameter.getScreen_y()/2);
         layoutParams.addRule(CENTER_IN_PARENT);
         videoView.setLayoutParams(layoutParams);
         this.addView(videoView);
@@ -92,7 +92,7 @@ public class AnimationPlayer extends RelativeLayout {
             @Override
             public void onCompletion(MediaPlayer mp) {
                 ((Activity)context).startActivity(intent);
-               // ((Activity)context).finish();
+                ((Activity)context).finish();
                 videoView.stopPlayback();
             }
         });

@@ -18,7 +18,8 @@ Java_com_example_jh_tangram_MainActivity_convertNativeLib(JNIEnv*, jobject, jlon
     transpose(frame_org, frame_org);
     flip(frame_org, frame_org, -1);
 
-    imwrite("/sdcard/Documents/frame.jpg", frame_org);
+   //
+    // imwrite("/sdcard/Documents/frame.jpg", frame_org);
 
     static int complete = 0;    //블럭이 모두 맞춰지면 1. (현재 그림 인식 종료 가능)
     static int init=0;          //초기화 한번 진행

@@ -258,20 +258,11 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
 
             convertNativeLib(img_input.getNativeObjAddr(), img_result.getNativeObjAddr(), idx);
 
+
             int[] arr = getResult();
 
             if(tangrams.changBlocks(arr))
                 startActivity(new Intent(MainActivity.this, AnimationPlayActivity.class).putExtra("idx", idx));
-/*
-        for(int i : arr)
-        {
-            if(inInBlock(arr, 6))
-                block.changeImage();
-            else if(!inInBlock(arr, 6))
-                block.originalImage();
-        }
-
-*/
 
         }
         return img_input;
