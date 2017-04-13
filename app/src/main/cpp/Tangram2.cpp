@@ -28,13 +28,11 @@ void TANGRAM(Mat &frame, ANS &answer, vector<int> &foundIdx, int &complete) {
         //imwrite(msg, frame);
         foundIdx.clear();
         complete = 0;
-        //imshow("present frame", frame);
 
         Mat cutFrame;
         cutUnnecessaryPart(frame, cutFrame);
-        //imshow("cutframe", cutFrame);
 
-        //progEn = isDiff(pre, cutFrame);
+        progEn = isDiff(pre, cutFrame);
         pre = cutFrame.clone();
         if (progEn != go) {
             putText(frame, "NONE", Point(30, 30), FONT_HERSHEY_SIMPLEX, 1, Scalar(255, 255, 255));
@@ -48,23 +46,14 @@ void TANGRAM(Mat &frame, ANS &answer, vector<int> &foundIdx, int &complete) {
         //imshow("warp", warpFrame);
         imwrite("/sdcard/Documents/warp.jpg", warpFrame);
 
-        vector<Mat> coloredBlk;
-        progEn = findBlockbyColor(warpFrame, coloredBlk);
-        if (progEn != go) {
+        vector<vector<Point>> edgeResult;
+        progEn=findBlockbyEdge(warpFrame, edgeResult);
+        if (progEn != go){
             putText(frame, "NONE", Point(30, 30), FONT_HERSHEY_SIMPLEX, 1, Scalar(255, 255, 255));
             return;
         }
 
-        for (int i = 0; i < coloredBlk.size(); i++) {
-            getBlock(coloredBlk[i], blocks);
-
-        }
-       /* if (coloredBlk.size() != 0)
-            for (int i = 0; i < coloredBlk.size(); i++) {
-                char msg[50];
-                sprintf(msg, "/sdcard/Documents/blk%d.jpg", i);
-                imwrite(msg, coloredBlk[i]);
-            }*/
+        getBlock(warpFrame, edgeResult, blocks);
 
         checkFound(blocks, answer, foundIdx);
         if (foundIdx.empty()) {
@@ -134,8 +123,7 @@ void getLamda(Mat &src, Mat &lambda) {
 /* read answer file and store in answer variables*/
 void readAnswer(vector<ANS>& answer) {
     FILE *fp;
-    fp = fopen("/sdcard/Download/answer.txt", "r");
-   // fp = fopen("/data/user/0/com.example.jh.tangram/files/answer.txt", "r");
+    fp = fopen("/sdcard/Documents/answer.txt", "r");
     if (fp == NULL)
         return;
     char ch;
@@ -176,7 +164,6 @@ void cutUnnecessaryPart(Mat &src, Mat &dst) {
     //waitKey(0);
     //dst = Mat::zeros(Size(src.cols, src.rows), src.type());
     copyMakeBorder(cut, dst, TOP_POINT_Y, src.rows-BOTTOM_POINT_Y-TOP_POINT_Y , 0, 0, BORDER_CONSTANT, Scalar(0, 0, 0));
-
 }
 
 /*	To make process efficient, stopping process when present frame is similar with previous
@@ -191,138 +178,107 @@ int isDiff(Mat &prev, Mat &frame) {
 
     threshold(diff, diff, 25, 255, THRESH_BINARY);
     Scalar total = sum(diff);
-    if (total[0] > 0.15 * (diff.cols * diff.rows)) {
+    if (total[0] > 0.2 * (diff.cols * diff.rows)) {
         return stop;
     }
     else
         return go;
 }
 
-/*	find each block by watershed algorithm
-	input: source image
-	output: vector<Mat> found image vector*/
-int findBlockbyColor(Mat &src, vector<Mat> &result) {
+int checkPoly(vector<Point>& poly)
+{
+    vector<float> corner;
+
+    ////chech present contour
+    //Mat z = Mat::zeros(Size(FRAME_WIDTH, FRAME_HEIGHT), CV_8UC3);
+    //vector<vector<Point>> cont;
+    //cont.push_back(poly);
+    //drawContours(z, cont, 0, Scalar(255, 255, 255));
+    //imshow("poly", z);
+    //waitKey(1);
+
+
+    for (int i = 0; i < poly.size(); i++){
+        corner.push_back(getDistance(poly[i], poly[(i + 1) % poly.size()]));
+    }
+    sort(corner.begin(), corner.end());
+    if (corner[0] < 30)	//가장 짧은 변의 길이가 30픽셀 이상이어야 한다.
+        return stop;
+
+    vector<float>cornerRate;
+    for (int i = 0; i < corner.size(); i++){
+        cornerRate.push_back(corner[i] / corner[0]);
+    }
+
+    float margin = 0.5;
+    if (corner.size() == 3){	//직각삼각형 - 1:1:1.4
+        if (((cornerRate[0]>=(1 - margin)) && (cornerRate[0]<=(1 +margin))) &&
+            ((cornerRate[1]>=(1 - margin)) && (cornerRate[1]<=(1 + margin))) &&
+            ((cornerRate[2]>=(1.4 - margin)) && (cornerRate[2]<=(1.4 + margin))))
+            return go;
+        else return stop;
+    }
+    else if (corner.size() == 4){
+        if (((cornerRate[0] >= (1 - margin)) && (cornerRate[0] <= (1 + margin))) &&
+            ((cornerRate[1] >= (1 - margin)) && (cornerRate[1] <= (1 + margin))) &&
+            ((cornerRate[2] >= (1 - margin)) && (cornerRate[2] <= (1 + margin))) &&
+            ((cornerRate[3] >= (1 - margin)) && (cornerRate[3] <= (1 + margin))))//정사각형 - 1:1:1:1
+            return go;
+
+        else if (((cornerRate[0] >= (1 - margin)) && (cornerRate[0] <= (1 + margin))) &&
+                 ((cornerRate[1] >= (1 - margin)) && (cornerRate[1] <= (1 + margin))) &&
+                 ((cornerRate[2] >= (1.4 - margin)) && (cornerRate[2] <= (1.4 + margin))) &&
+                 ((cornerRate[3] >= (1.4 - margin)) && (cornerRate[3] <= (1.4 + margin))))		//평행사변 - 1:1:1.4:1.4
+            return go;
+
+        else return stop;
+    }
+    else return stop;
+}
+
+/* find block by only edge- 1. 각 변의 비율, 2. 긴 변의 길이*/
+int findBlockbyEdge(Mat& src, vector<vector<Point>>& result)
+{
+    int en = go;
 
     Mat blured, edge;
     blur(src, blured, Size(3, 3));
-    Canny(blured, edge, 30, 60, 3);
-    dilate(edge, edge, Mat(), Point(-1, -1), 2);
-    //erode(edge, edge, Mat(), Point(-1, -1), 1);
-    //dilate(edge, edge, Mat(), Point(-1, -1), 2);
-    //imwrite("/sdcard/Documents/colorCanny.jpg", edge);
-
-    //make markers
-    vector<vector<Point> > contours;
-    findContours(edge, contours, CV_RETR_CCOMP, CV_CHAIN_APPROX_SIMPLE);
-    if (contours.size() <= 0)
-        return stop;
-    // Create the marker image for the watershed algorithm
-    Mat markers = Mat::zeros(edge.size(), CV_32SC1);
-    // Draw the foreground markers
-    int num = 0;
-    for (size_t i = 0; i < contours.size(); i++) {
-        Rect r;
-        r = boundingRect(contours[i]);
-        if (r.area() > 50 && r.area() < edge.cols / 2 * edge.rows / 2) {
-            num++;
-            drawContours(markers, contours, static_cast<int>(i), Scalar::all(num), -1);
-        }
-    }
-    if (num == 0) // || num > 10
-        return stop;
-    //imshow("conto mark", markers*10000);
-    //waitKey(0);
-
-    Mat mark = markers.clone();
-    mark.convertTo(mark, CV_8UC1);
-
-    // Draw the background marker
-    //circle(markers, Point(1, 1), 3, Scalar::all(255),  -1);
-    //circle(markers, Point(1, markers.rows - 1), 3, Scalar::all(255), -1);
-    //circle(markers, Point(markers.cols - 1, 1), 3, Scalar::all(255), -1);
-    //circle(markers, Point(markers.cols - 1, markers.rows - 1), 3, Scalar::all(255), -1);
-
-    watershed(src, markers);
-    //Generate result image
-    vector<Vec3b> colors;
-    for (int i = 0; i < num; i++) {
-        colors.push_back(pickColor(src, mark, i + 1));
-        if ((colors[i][0] + colors[i][1] + colors[i][2]) / 3 < 10)
-            colors[i] = Vec3b(0, 0, 0);
-    }
-
-    // Create the result image
-    // Fill labeled objects stored colors
-    for (int k = 0; k < num; k++) {
-        Mat dst = Mat::zeros(markers.size(), CV_8UC3);
-        for (int i = 0; i < markers.rows; i++) {
-            for (int j = 0; j < markers.cols; j++) {
-                if (markers.at<int>(i, j) == k + 1)
-                    dst.at<Vec3b>(i, j) = colors[k];
-            }
-        }
-        result.push_back(dst);
-    }
-    if (result.size() <= 0) {
-        return stop;
-    }
-    return go;
-}
-
-/*  pick color from original color image regarding to value of data matrix
-	input:  color and data matrix(these should be same size)
-			integer value of data matrix which indicate wanted position
-	output: bgr color value as Vec3b type */
-Vec3b pickColor(Mat &src_color, Mat &src_data, int value) {
-    vector<Mat> ch(3);
-    split(src_color, ch);
-
-    int x = 0;
-    int y = 0;
-    for (int i = 0; i < src_data.cols; i++) {
-        int j = 0;
-        for (j = 0; j < src_data.rows; j++) {
-            if (src_data.at<uchar>(j, i) == value) {
-                x = j;
-                y = i;
-                break;
-            }
-        }
-        if (j != src_data.rows)
-            break;
-    }
-
-    int b = ch[0].at<uchar>(x, y);
-    int g = ch[1].at<uchar>(x, y);
-    int r = ch[2].at<uchar>(x, y);
-
-    return (Vec3b((uchar) b, (uchar) g, (uchar) r));
-}
-
-int getPolygon(Mat &src, vector<Point> &vertex) {
-    Mat canny;
-    Canny(src, canny, 35, 60);
-    if (canny.total()==0)
-        return stop;
-    //imshow("canny", canny);
-    dilate(canny, canny, Mat());
+    Canny(src, edge, 30, 60, 3);
+    dilate(edge, edge, Mat(), Point(-1, -1), 1);
 
     vector<vector<Point>> contours;
-    vector<Point> poly;
-    findContours(canny, contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE);
-    if (contours.size() <= 0)
+    findContours(edge, contours, CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE);
+    if (contours.size() < 1)
         return stop;
-    for (size_t i = 0; i < contours.size(); i++) {
-        if (contourArea(contours[i]) <= 0 || contourArea(contours[i]) > src.cols / 2 * src.rows / 2)
-            return stop;
+
+    Mat cont = src.clone();
+    char msg[50]={'\0'};
+
+    //get first block contours according to corner rate
+    for (int i = 0; i < contours.size(); i++){
+        vector<Point> poly;
         approxPolyDP(contours[i], poly, 15, true);
         if (poly.size() != 3 && poly.size() != 4)
-            return stop;
+            continue;
+
+        drawContours(cont, contours, i, Scalar(255, 255, 255), 1);
+        en=checkPoly(poly);
+        if (en == go){
+            drawContours(cont, contours, i, Scalar(0, 255, 255), 2);
+            result.push_back(poly);
+            sprintf(msg, "/sdcard/Documents/contour%d.jpg", result.size());
+            imwrite(msg, cont);
+        }
+        else
+            continue;
     }
 
-    vertex = poly;
+    if (result.size() == 0)
+        return stop;
+
     return go;
 }
+
 
 double getDistance(const Point &p1, const Point &p2) {
 
@@ -357,21 +313,21 @@ int getBlockCenter(BLOCK &blk) {
     return go;
 }
 
-
 /* get angle of longest line of block*/
-int getBlockAngle(BLOCK &blk) {
+int getBlockAngle(BLOCK& blk)
+{
     if (blk.vertex.empty() || blk.cg == Point(0, 0))
         return stop;
 
     //블럭이 삼각형인 경우 외접원과 중심좌표의 각도를 블럭의 각도로 사용한다.
-    if (blk.vertex.size() == 3) {
+    if (blk.vertex.size() == 3){
         Point2f center(0, 0);
         float radius;
 
         minEnclosingCircle(blk.vertex, center, radius);
         blk.angle = cvFastArctan((blk.cg.y - center.y), (blk.cg.x - center.x));
     }
-    else {    //블럭이 사각형인 경우 가장 긴 변(대각선)이 x축과 이루는 각도를 사용한다.
+    else{	//블럭이 사각형인 경우 가장 긴 변(대각선)이 x축과 이루는 각도를 사용한다.
         float maxDis = 0;
         vector<Point2i> maxSide;
         int maxIdx0 = -1;
@@ -397,11 +353,11 @@ int getBlockAngle(BLOCK &blk) {
             return stop;
         //정사각형(노란색)인 경우
         if (blk.color == yellow) {
-            int ang = (int) cvFastArctan((maxSide[1].y - maxSide[0].y),
-                                         (maxSide[1].x - maxSide[0].x));
+            int ang = (int)cvFastArctan((maxSide[1].y - maxSide[0].y),
+                                        (maxSide[1].x - maxSide[0].x));
             blk.angle = ang % 90;
         }
-        else if (blk.color == 1) { //평행사변형인 경우
+        else if (blk.color == orange) { //평행사변형인 경우
             int idx = -1;
             for (int j = 0; j < blk.vertex.size(); j++)
                 if (maxSide[0] == blk.vertex[j]) {
@@ -409,13 +365,12 @@ int getBlockAngle(BLOCK &blk) {
                 }
             //평행사변형에서 가장 긴 대각선을 이루는 두꼭지점중 한점을 기준으로, 다음꼭지점과 이전꼭지점의 길이로 flip을 확인한다.
             //이때 꼭지점은 도형에서 반시계방향으로 순서가 정해진다고 가정한다.
-            int dis1 = (int) getDistance(blk.vertex[idx], blk.vertex[(idx + 1) % 4]);
-            int dis2 = (int) getDistance(blk.vertex[idx], blk.vertex[(idx + 3) % 4]);
+            int dis1 = (int)getDistance(blk.vertex[idx], blk.vertex[(idx + 1) % 4]);
+            int dis2 = (int)getDistance(blk.vertex[(idx + 1) % 4], blk.vertex[(idx+2)%4]);
 
-            blk.angle = (int) cvFastArctan((maxSide[1].y - maxSide[0].y),
-                                           (maxSide[1].x - maxSide[0].x));
+            blk.angle = (int)cvFastArctan((maxSide[1].y - maxSide[0].y), (maxSide[1].x - maxSide[0].x));
 
-            if (dis1 > dis2)
+            if (dis1 < dis2)
                 blk.angle = blk.angle;
             else
                 blk.angle = -1 * blk.angle;
@@ -427,51 +382,59 @@ int getBlockAngle(BLOCK &blk) {
     return go;
 }
 
+
 /*	decide block color by hue value of center of block in source imgae
-	input: Mat source image, BLOCK having cg information
-	output: defined blk color	*/
-int decideBlockColor(Mat &src, BLOCK &blk) {
-    Mat hsv;
-    cvtColor(src, hsv, CV_BGR2HSV);
+input: Mat source image, BLOCK having cg information
+output: defined blk color	*/
+int decideBlockColor(Mat& src, BLOCK& blk)
+{
+    Mat blured;
+    blur(src, blured, Size(3, 3));
 
-    vector<Mat> hsv_ch;
-    split(hsv, hsv_ch);
+    /*//chech present contour
+    Mat z = Mat::zeros(Size(FRAME_WIDTH, FRAME_HEIGHT), CV_8UC3);
+    vector<vector<Point>> cont;
+    cont.push_back(blk.vertex);
+    drawContours(z, cont, 0, Scalar(255, 255, 255));*/
 
-    int h = hsv_ch[0].at<uchar>(blk.cg);
-    //int s = hsv_ch[1].at<uchar>(blk.cg);
+    int h = blured.at<uchar>(blk.cg);
 
     if (blk.vertex.size() == 4){
-        int dist = abs((int)(getDistance(blk.vertex[0], blk.vertex[1]) - getDistance(blk.vertex[1], blk.vertex[2])));
-        if (dist < 15 && h < 50 && h>5)
+
+        //한모서리와 다른 모서리의 각도를 구하여, 각도가 90도이면 정사각형, 45보다 작으면 평행사변형이라한다.
+        int ang1 = ((int)cvFastArctan((blk.vertex[1].y-blk.vertex[0].y), (blk.vertex[1].x-blk.vertex[0].x)));
+        int ang2 = ((int)cvFastArctan((blk.vertex[2].y - blk.vertex[1].y), (blk.vertex[2].x - blk.vertex[1].x)));
+        int ang = abs(ang2 - ang1)%90;
+        if ((ang >= 85 || ang<=15) && h<30)
             blk.color = yellow;
-        else if (dist >= 15 && h < 30 && h>5)
+        else if ((ang <= 65 && ang >= 35) && h < 50)
             blk.color = orange;
         else
             return stop;
     }
     else if (blk.vertex.size() == 3){
         //get largest line
-        int maxLineIdx = -1;
+        //int maxLineIdx = -1;
         int maxLength = 0;
         for (int i = 0; i < blk.vertex.size(); i++){
-            int length = getDistance(blk.vertex[i], blk.vertex[(i + 1) % blk.vertex.size()]);
+            int length = (int)getDistance(blk.vertex[i], blk.vertex[(i + 1) % blk.vertex.size()]);
             if (maxLength < length){
-                maxLineIdx = i;
+                //maxLineIdx = i;
                 maxLength = length;
             }
         }
 
-        if (maxLength > 0 && maxLength < 95){
+        if (maxLength > 0 && maxLength < 80){
             if (h < 100 && h>50) blk.color = sky;
             else if (h >= 110) blk.color = purple;
             else return stop;
         }
-        else if (maxLength >= 120 && maxLength< 180){
-            if (h < 20 || h>170) blk.color = red;
-            else if (h > 45) blk.color = blue;
+        else if (maxLength > 110){
+            if (h < 30) blk.color = red;
+            else if (h > 50) blk.color = blue;
             else return stop;
         }
-        else if (maxLength > 95 && maxLength<120){
+        else if (maxLength > 50){
             if (h > 20 && h < 100) blk.color = green;
             else return stop;
         }
@@ -480,65 +443,63 @@ int decideBlockColor(Mat &src, BLOCK &blk) {
     }
     else return stop;
 
-    char msg[50];
-    Mat t=src.clone();
-    sprintf(msg, "/sdcard/Documents/block%d.jpg", blk.color);
-    imwrite(msg, t);
-
     return go;
 }
 
 /*	get one block from source imag
-	input: Mat image
-	output: Block values store to block array	*/
-void getBlock(Mat &src, BLOCK block[7]) {
-    BLOCK blk;
+input: Mat image
+output: Block values store to block array	*/
+void getBlock(Mat& src, vector<vector<Point>>&edgeResult, BLOCK block[7])
+{
+    Mat hsv;
+    cvtColor(src, hsv, CV_BGR2HSV);
+    vector<Mat> hsv_ch;
+    split(hsv, hsv_ch);
 
-    int en = go;
-    vector<Point> vtx;
-    en = getPolygon(src, vtx);
-    if (en == stop)
-        return;
-    else
-        blk.vertex = vtx; //block is found
+    for (int j = 0; j < edgeResult.size(); j++){
+        BLOCK blk;
+        int en = go;
 
-    //get block parameter: center of gravity and angle using block vertexes
-    en = getBlockCenter(blk);
-    if (en == stop)
-        return;
-    en = decideBlockColor(src, blk);
-    if (en == stop)
-        return;
-    en = getBlockAngle(blk);
-    if (en == stop)
-        return;
+        blk.vertex = edgeResult[j];
 
-    //find index to store blk to block array
-    int blkIdx = -1;
-    for (int i = 0; i < 7; i++) {
-        if (i == blk.color) {
-            blkIdx = blk.color;
-            break;
+        //get block parameter: center of gravity and angle using block vertexes
+        en = getBlockCenter(blk);
+        if (en == stop)
+            continue;
+        en = decideBlockColor(hsv_ch[0], blk);
+        if (en == stop)
+            continue;
+        en = getBlockAngle(blk);
+        if (en == stop)
+            continue;
+
+        //find index to store blk to block array
+        int blkIdx = -1;
+        for (int i = 0; i < 7; i++){
+            if (i == blk.color){
+                blkIdx = blk.color;
+                break;
+            }
         }
+        if (blkIdx == -1)
+            continue;
+
+        //copy all information of block
+        block[blkIdx].vertex = blk.vertex;
+        block[blkIdx].cg = blk.cg;
+        block[blkIdx].color = blk.color;
+        block[blkIdx].angle = blk.angle;
+        block[blkIdx].found = 1;	//flag
     }
-    if (blkIdx == -1)
-        return;
-
-    //copy all information of block
-    block[blkIdx].vertex = blk.vertex;
-    block[blkIdx].cg = blk.cg;
-    block[blkIdx].color = blk.color;
-    block[blkIdx].angle = blk.angle;
-    block[blkIdx].found = 1;    //flag to check block is found
-
     return;
 }
+
 
 /* 모든 블럭의 거리 계산. 찾아진 블럭이 아니면 거리를 0, 정답 거리와 비교하여 일치하는 경우 인덱스 저장 */
 void matchBlockDistance(BLOCK block[7], ANS &answer, vector<int> &foundIdx) {
     vector<int> tempIdx;
 
-    int margin = 40;    //20
+    int margin = 80;
     int t = 0;    //answer dist index
     //모든 블럭의 거리 계산 찾아진 블럭이 아니면 거리를 0, 이를 정답 거리와 비교하여 일치하는 경우 인덱스 저장
     for (int i = 0; i < 7; i++) {
@@ -576,17 +537,12 @@ void matchBlockDistance(BLOCK block[7], ANS &answer, vector<int> &foundIdx) {
             foundIdx.push_back(tempIdx[i]);
             storeIdx = tempIdx[i];
         }
-        //if (tempIdx[i] != tempIdx[i + 1]){
-        //	foundIdx.push_back(tempIdx[i]);
-        //	if (i == tempIdx.size() - 2)
-        //		foundIdx.push_back(tempIdx[i + 1]);
-        //}
     }
     return;
 }
 
 int matchBlockAngle(BLOCK block[7], ANS &answer, int &idx) {
-    int angmargin = 30; //15
+    int angmargin = 40;
     int match = 0;
 
     int angle = block[idx].angle;
@@ -622,44 +578,31 @@ int matchBlockAngle(BLOCK block[7], ANS &answer, int &idx) {
 }
 
 /* Check what blocks are founded
-	input: BLOCK array
-	output: founded block index vector*/
-void checkFound(BLOCK block[7], ANS &answer, vector<int> &foundIdx) {
+input: BLOCK array
+output: founded block index vector*/
+void checkFound(BLOCK blocks[7], ANS& answer, vector<int>& foundIdx)
+{
     //현재 찾은 블럭이 무엇인지 확인
     int numFoundBlock = 0;
-    vector<int> blkIdx ; //어떤 블럭을 찾았는지 저장. 두개 이상이면 필요없는 변수
-    for (int i = 0; i < 7; i++) {
-        if (block[i].found == 1) {
-            blkIdx.push_back(i);
+    int blkIdx = -1; //어떤 블럭을 찾았는지 저장. 두개 이상이면 필요없는 변수
+    for (int i = 0; i < 7; i++){
+        if (blocks[i].found == 1){
+            blkIdx = i;
             numFoundBlock++;
         }
     }
-    //찾은 블럭이 없으면 끝냄. 또는 하나만 찾은 경우 해당 블럭만 저장후 끝냄
-    if (numFoundBlock == 0)
+    //찾은 블럭이 없거나 하나만 찾은 경우 끝냄
+    if (numFoundBlock <2) //수정 1에서 2로
         return;
-    else if (numFoundBlock == 1) {
-        foundIdx.push_back(blkIdx[0]);
-        //char msg[50];
-        //Mat t=Mat::zeros(Size(FRAME_WIDTH, FRAME_HEIGHT), CV_8UC3);
-        //sprintf(msg, "/sdcard/Documents/One%d.jpg", blkIdx[0]);
-        //imwrite(msg,t);
-        return;
-    }
 
     //찾은 블럭의 거리를 계산하고 정답과 일치하는 블럭의 인덱스를 저장한다.
     vector<int> preFoundIdx;
-    matchBlockDistance(block, answer, preFoundIdx);
-
-    //블럭이 여러개 있지만 모두 거리가 맞지 않는 경우, 가장 숫자가 작은 블럭 하나의 인덱스만 저장하고 끝낸다.
-    if (numFoundBlock != 0 && preFoundIdx.size() == 0) {
-        foundIdx.push_back(blkIdx[0]);
-        return;
-    }
+    matchBlockDistance(blocks, answer, preFoundIdx);
 
     //찾아진 블럭의 각도 체크 regarding to answer
-    for (int i = 0; i < preFoundIdx.size(); i++) {
-        int match = matchBlockAngle(block, answer, preFoundIdx[i]);
-        if (match == 1) {
+    for (int i = 0; i < preFoundIdx.size(); i++){
+        int match = matchBlockAngle(blocks, answer, preFoundIdx[i]);
+        if (match == 1){
             foundIdx.push_back(preFoundIdx[i]);
         }
     }

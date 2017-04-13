@@ -178,8 +178,10 @@ public class Tangrams extends RelativeLayout {
         {
             flag &= isInBlock(arr, i);
 
-            if(isInBlock(arr, i))
+            if(isInBlock(arr, i)) {
                 blocks[i].changeImage();
+                Log.d("block : ", Integer.toString(i));
+            }
             else if(!isInBlock(arr, i))
                 blocks[i].originalImage();
         }

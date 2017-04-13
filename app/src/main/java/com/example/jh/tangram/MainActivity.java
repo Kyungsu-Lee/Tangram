@@ -252,7 +252,8 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
         img_result = new Mat();
 
 
-        if(startFlag) {
+        if(startFlag)
+        {
 
             Log.d("stage", Integer.toString(idx));
 

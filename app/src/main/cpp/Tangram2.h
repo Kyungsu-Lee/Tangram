@@ -55,8 +55,8 @@ using namespace std;
 #define WARP_POINT2_Y 440
 #define WARP_POINT3_X 100
 #define WARP_POINT3_Y 440
-#define TOP_POINT_Y 100
-#define BOTTOM_POINT_Y 410
+#define TOP_POINT_Y 145
+#define BOTTOM_POINT_Y 350
 
 /*decide if process go on or stop*/
 #define go 1
@@ -94,12 +94,13 @@ void getLamda(Mat& src, Mat& lambda);
 void cutUnnecessaryPart(Mat& src, Mat& dst);
 int isDiff(Mat& prev, Mat& frame);
 
-int findBlockbyColor(Mat& ROI, vector<Mat> &result);
-Vec3b pickColor(Mat &src_color, Mat &src_data, int value);
+/* Find blcok candidates*/
+int findBlockbyEdge(Mat& src, vector<vector<Point>>& result);
+int checkPoly(vector<Point>& poly);
 
 /* Find Block and its parameter*/
-void getBlock(Mat& src, BLOCK block[7]);
-int getPolygon(Mat& src, vector<Point>& vertex);
+void getBlock(Mat& src, vector<vector<Point>>&edgeResult, BLOCK block[7]);
+//int getPolygon(Mat& src, vector<Point>& vertex);
 int getBlockCenter(BLOCK& blk);
 int getBlockAngle(BLOCK& blk);
 double getDistance(const Point &p1, const Point &p2);

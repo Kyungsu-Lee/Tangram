@@ -40,6 +40,7 @@ Java_com_example_jh_tangram_MainActivity_convertNativeLib(JNIEnv*, jobject, jlon
          //TANGRAM(frame_org, answer[ansIdx], foundIdx, complete, init, lambda, pre);
     }
 
+/*
     if(foundIdx.size()!=0){
         char msg[30]={'\0'};
         for(int i=0; i<foundIdx.size(); i++){
@@ -50,6 +51,7 @@ Java_com_example_jh_tangram_MainActivity_convertNativeLib(JNIEnv*, jobject, jlon
     if(complete==1){
         putText(img_input, answer[ansIdx].name, Point(600, 50), FONT_HERSHEY_SIMPLEX, 2, Scalar(255, 255, 255) ,3);
     }
+    */
 
     return 0;
 }

@@ -111,8 +111,11 @@ public class AnimationPlayActivity extends Activity {
                         public void handleMessage(Message msg) {
                             super.handleMessage(msg);
 
-                            if(time >=  400)
+                            if(time >=  200)
+                            {
+                                moveTaskToBack(true);
                                 android.os.Process.killProcess(android.os.Process.myPid());
+                            }
 
                             fadeout.setBackgroundColor(Color.argb(time > 256 ? 255 : time, 0, 0, 0));
                             time += 20;
