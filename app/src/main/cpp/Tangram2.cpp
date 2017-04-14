@@ -44,7 +44,7 @@ void TANGRAM(Mat &frame, ANS &answer, vector<int> &foundIdx, int &complete) {
         warpPerspective(cutFrame, warpFrame, lambda, cutFrame.size());
         //flip(warp, warp, 0);
         //imshow("warp", warpFrame);
-        imwrite("/sdcard/Documents/warp.jpg", warpFrame);
+        //imwrite("/sdcard/Documents/warp.jpg", warpFrame);
 
         vector<vector<Point>> edgeResult;
         progEn=findBlockbyEdge(warpFrame, edgeResult);
@@ -202,7 +202,7 @@ int checkPoly(vector<Point>& poly)
         corner.push_back(getDistance(poly[i], poly[(i + 1) % poly.size()]));
     }
     sort(corner.begin(), corner.end());
-    if (corner[0] < 30)	//가장 짧은 변의 길이가 30픽셀 이상이어야 한다.
+    if (corner[0] < 20)	//가장 짧은 변의 길이가 30픽셀 이상이어야 한다.
         return stop;
 
     vector<float>cornerRate;
@@ -210,7 +210,7 @@ int checkPoly(vector<Point>& poly)
         cornerRate.push_back(corner[i] / corner[0]);
     }
 
-    float margin = 0.5;
+    float margin = 0.56;
     if (corner.size() == 3){	//직각삼각형 - 1:1:1.4
         if (((cornerRate[0]>=(1 - margin)) && (cornerRate[0]<=(1 +margin))) &&
             ((cornerRate[1]>=(1 - margin)) && (cornerRate[1]<=(1 + margin))) &&
@@ -244,7 +244,7 @@ int findBlockbyEdge(Mat& src, vector<vector<Point>>& result)
     Mat blured, edge;
     blur(src, blured, Size(3, 3));
     Canny(src, edge, 30, 60, 3);
-    dilate(edge, edge, Mat(), Point(-1, -1), 1);
+    dilate(edge, edge, Mat(), Point(-1, -1), 2);
 
     vector<vector<Point>> contours;
     findContours(edge, contours, CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE);
@@ -257,7 +257,7 @@ int findBlockbyEdge(Mat& src, vector<vector<Point>>& result)
     //get first block contours according to corner rate
     for (int i = 0; i < contours.size(); i++){
         vector<Point> poly;
-        approxPolyDP(contours[i], poly, 15, true);
+        approxPolyDP(contours[i], poly, 12, true);
         if (poly.size() != 3 && poly.size() != 4)
             continue;
 
@@ -267,7 +267,7 @@ int findBlockbyEdge(Mat& src, vector<vector<Point>>& result)
             drawContours(cont, contours, i, Scalar(0, 255, 255), 2);
             result.push_back(poly);
             sprintf(msg, "/sdcard/Documents/contour%d.jpg", result.size());
-            imwrite(msg, cont);
+            //imwrite(msg, cont);
         }
         else
             continue;
@@ -405,7 +405,7 @@ int decideBlockColor(Mat& src, BLOCK& blk)
         int ang1 = ((int)cvFastArctan((blk.vertex[1].y-blk.vertex[0].y), (blk.vertex[1].x-blk.vertex[0].x)));
         int ang2 = ((int)cvFastArctan((blk.vertex[2].y - blk.vertex[1].y), (blk.vertex[2].x - blk.vertex[1].x)));
         int ang = abs(ang2 - ang1)%90;
-        if ((ang >= 85 || ang<=15) && h<30)
+        if ((ang >= 70 || ang<=15) && h<30)
             blk.color = yellow;
         else if ((ang <= 65 && ang >= 35) && h < 50)
             blk.color = orange;
@@ -424,20 +424,22 @@ int decideBlockColor(Mat& src, BLOCK& blk)
             }
         }
 
-        if (maxLength > 0 && maxLength < 80){
-            if (h < 100 && h>50) blk.color = sky;
-            else if (h >= 110) blk.color = purple;
-            else return stop;
+        int color=-1;
+        if (maxLength > 0 && maxLength < 80 && color==-1){
+            if (h < 100 && h>50) color = sky;
+            else if (h >= 110) color = purple;
         }
-        else if (maxLength > 110){
-            if (h < 30) blk.color = red;
-            else if (h > 50) blk.color = blue;
-            else return stop;
+        if (maxLength > 100 && color==-1){
+            if (h < 30) color = red;
+            else if (h > 50) color = blue;
+            //else return stop;
         }
-        else if (maxLength > 50){
-            if (h > 20 && h < 100) blk.color = green;
-            else return stop;
+        if (maxLength > 50 && color==-1){
+            if (h > 20 && h < 100) color = green;
+            //else return stop;
         }
+        if (color != -1)
+            blk.color = color;
         else
             return stop;
     }
@@ -499,7 +501,7 @@ void getBlock(Mat& src, vector<vector<Point>>&edgeResult, BLOCK block[7])
 void matchBlockDistance(BLOCK block[7], ANS &answer, vector<int> &foundIdx) {
     vector<int> tempIdx;
 
-    int margin = 80;
+    int margin = 30;
     int t = 0;    //answer dist index
     //모든 블럭의 거리 계산 찾아진 블럭이 아니면 거리를 0, 이를 정답 거리와 비교하여 일치하는 경우 인덱스 저장
     for (int i = 0; i < 7; i++) {
@@ -542,7 +544,7 @@ void matchBlockDistance(BLOCK block[7], ANS &answer, vector<int> &foundIdx) {
 }
 
 int matchBlockAngle(BLOCK block[7], ANS &answer, int &idx) {
-    int angmargin = 40;
+    int angmargin = 30;
     int match = 0;
 
     int angle = block[idx].angle;

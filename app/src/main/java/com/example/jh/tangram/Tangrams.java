@@ -160,7 +160,7 @@ public class Tangrams extends RelativeLayout {
             blocks[4].setRotation(45);
 
             blocks[5].setX(545 * param_x);
-            blocks[5].setY(212 * param_y);
+            blocks[5].setY(140 * param_y);
             blocks[5].setRotation(45);
 
             blocks[6].setX(769 * param_x);

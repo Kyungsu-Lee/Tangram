@@ -71,7 +71,7 @@ public class HomeActivity extends Activity {
 
                 if(event.getAction() == MotionEvent.ACTION_UP)
                 {
-                    startActivity(new Intent(HomeActivity.this, AnimationPlayActivity.class).putExtra("idx", -1));
+                    startActivity(new Intent(HomeActivity.this, AnimationPlayActivity.class).putExtra("idx", 103));
                     finish();
                 }
 
